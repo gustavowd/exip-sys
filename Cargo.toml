@@ -1,0 +1,12 @@
+[package]
+name = "exip-sys"
+version = "0.1.0"
+edition = "2024"
+build = "build.rs"
+
+[dependencies]
+quick-xml = "0.42.0"
+
+[build-dependencies]
+cc = "1.10.0"
+bindgen = "0.73.2"   # use a versão mais recente disponível
