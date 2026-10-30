@@ -99,7 +99,9 @@ side of the communication must use compatible options and the same schema.
   types may return an error.
 - During decoding, binary values are written as hexadecimal. The routine does
   not distinguish `hexBinary` from `base64Binary`.
-- Decoding `dateTime` values is not yet supported.
+- Decoding XML Schema `xs:dateTime` values is not yet supported. IEEE 2030.5
+  timestamp fields named `dateTime` use `TimeType` (integer seconds since the
+  Unix epoch), not `xs:dateTime`.
 - Encoding discards text nodes containing only whitespace, which are commonly
   used for indentation.
 
