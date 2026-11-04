@@ -105,8 +105,34 @@ side of the communication must use compatible options and the same schema.
 - Encoding discards text nodes containing only whitespace, which are commonly
   used for indentation.
 
+- Decoding uses the default EXI options out of band (`makeDefaultOpts`).
+  Streams that carry their own options in the EXI header, such as the
+  IEEE 2030.5 Annex C samples (first byte `0xa0`), are not decoded with those
+  options. The samples also use the `schemaVer` attribute, which the compiled
+  grammar does not have. Most of them fail with an `ExiError` (for example
+  `C_09_01_Subscription.exi` and `C_02_09_EndDevice.exi`); this is expected.
+  Streams produced by `xml_to_exi` (first byte `0x80`) decode normally.
+
 Check the returned `EncodeError` and `ExiError` values to handle XML errors,
 unsupported values, and errors reported by EXIP.
+
+## EXIP patches
+
+The pinned EXIP revision is patched at build time with the files in
+`patches/` (applied in name order after the checkout). They make the decoder
+return `EXIP_INVALID_EXI_INPUT` on malformed input instead of crashing:
+
+- bounds checks on value table indexes (local and global hits);
+- `assert`s reachable from input (`xsi:nil` content, `xsi:type` QName)
+  replaced with errors;
+- string table growth on static grammars copies the array instead of calling
+  `realloc` on static memory;
+- built-in grammars freed at the end of a stream are unlinked from the static
+  string tables, so the next decode does not use freed memory;
+- a value outside any element is rejected before reading its value partition.
+
+When `EXIP_DIR` points to a local EXIP checkout, that source is used as is and
+the patches are not applied.
 
 ## Tests
 
@@ -115,6 +141,14 @@ the `EXI_SAMPLE` environment variable:
 
 ```sh
 EXI_SAMPLE=/path/to/message.exi cargo test
+```
+
+`tests/malformed.rs` does not need a sample: it decodes bit flips,
+truncations, random bytes and known crash inputs, and fails if the process
+crashes:
+
+```sh
+cargo test --test malformed
 ```
 
 To run only the library unit test, which checks that the schema was loaded:
