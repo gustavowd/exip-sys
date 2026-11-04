@@ -45,6 +45,7 @@ fn exip_source(out_dir: &Path) -> PathBuf {
             "-C",
             path.to_str().expect("invalid EXIP cache path"),
             "checkout",
+            "--force",
             "--detach",
             EXIP_REVISION,
         ],
@@ -67,8 +68,39 @@ fn exip_source(out_dir: &Path) -> PathBuf {
         "the EXIP source does not match the pinned revision"
     );
 
+    // `checkout --force` above restores pristine sources, so the patches
+    // always apply on a clean tree, also when the cached clone is reused.
+    apply_patches(&path);
+
     path.canonicalize()
         .expect("failed to resolve the EXIP source directory")
+}
+
+/// Applies `patches/*.patch` (sorted by name) to the pinned EXIP checkout.
+/// They harden the decoder against untrusted input; see each patch header.
+/// Not applied when `EXIP_DIR` is set: that source is used as is.
+fn apply_patches(exip: &Path) {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("patches");
+    let mut patches: Vec<PathBuf> = fs::read_dir(&dir)
+        .expect("failed to read the patches directory")
+        .map(|e| e.expect("failed to read a patch entry").path())
+        .filter(|p| p.extension().is_some_and(|e| e == "patch"))
+        .collect();
+    patches.sort();
+
+    for patch in patches {
+        println!("cargo:rerun-if-changed={}", patch.display());
+        git(
+            [
+                "-C".as_ref(),
+                exip.as_os_str(),
+                "apply".as_ref(),
+                "--whitespace=nowarn".as_ref(),
+                patch.as_os_str(),
+            ],
+            &format!("applying {}", patch.display()),
+        );
+    }
 }
 
 fn main() {
@@ -118,6 +150,7 @@ fn main() {
         .unwrap();
 
     println!("cargo:rerun-if-changed=wrapper.h");
+    println!("cargo:rerun-if-changed=patches");
     println!("cargo:rerun-if-changed=csrc/sep_schema_shim.c");
     println!("cargo:rerun-if-changed=csrc/sep_exi_glue.c");
     println!("cargo:rerun-if-changed=csrc/sep_exi_enc.c");
